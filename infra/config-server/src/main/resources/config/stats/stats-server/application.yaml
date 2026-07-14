@@ -6,8 +6,8 @@ spring:
     name: "stats-server"
 
   datasource:
-    driver-class-name: org.h2.Driver
-    url: jdbc:h2:mem:stat;MODE=PostgreSQL
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://localhost:5432/stats
     username: user
     password: password
 
