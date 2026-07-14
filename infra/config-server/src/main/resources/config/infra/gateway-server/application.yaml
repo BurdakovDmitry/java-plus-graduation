@@ -35,7 +35,7 @@ spring:
         - id: core-public-service_route
           uri: lb://main-service
           predicates:
-            - Path=/events/**, /users/**, /categories/**, /compilations/**, /comments/**
+            - Path=/events/**,/users/**,/categories/**,/compilations/**,/comments/**
           filters:
             - PreserveHostHeader
 
