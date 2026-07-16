@@ -1,0 +1,51 @@
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,info,gateway"
+  endpoint:
+    gateway:
+      enabled: true
+
+spring:
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+
+      routes:
+        # 1. Маршрут для сохранения просмотра (POST /hit)
+        - id: stats-hit_service_route
+          uri: lb://stats-server
+          predicates:
+            - Path=/hit
+          filters:
+            - PreserveHostHeader
+
+        # 2. Маршрут для получения статистики (GET /stats)
+        - id: stats-get_service_route
+          uri: lb://stats-server
+          predicates:
+            - Path=/stats
+          filters:
+            - PreserveHostHeader
+
+        # 3. Маршрут для основного сервиса с доступностью - public
+        - id: core-public-service_route
+          uri: lb://main-service
+          predicates:
+            - Path=/events/**,/users/**,/categories/**,/compilations/**,/comments/**
+          filters:
+            - PreserveHostHeader
+
+        # 4. Маршрут для основного сервиса с доступностью - admin
+        - id: core-admin-service_route
+          uri: lb://main-service
+          predicates:
+            - Path=/admin/**
+          filters:
+            - PreserveHostHeader
+
+server:
+  port: 8080
