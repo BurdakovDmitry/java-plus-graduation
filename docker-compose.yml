@@ -1,14 +1,84 @@
 services:
-  stats-server:
-    ports:
-      - "9090:9090"
-
   stats-db:
     image: postgres:16.1
-
-  ewm-service:
     ports:
-      - "8080:8080"
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=stats
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -q -d stats -U user" ]
+      timeout: 5s
+      interval: 5s
+      retries: 10
 
-  ewm-db:
+  event-db:
     image: postgres:16.1
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_DB=event
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -q -d event -U user" ]
+      timeout: 5s
+      interval: 5s
+      retries: 10
+
+  user-db:
+    image: postgres:16.1
+    ports:
+      - "5434:5432"
+    environment:
+      - POSTGRES_DB=user
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -q -d user -U user" ]
+      timeout: 5s
+      interval: 5s
+      retries: 10
+
+  category-db:
+    image: postgres:16.1
+    ports:
+      - "5435:5432"
+    environment:
+      - POSTGRES_DB=category
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -q -d category -U user" ]
+      timeout: 5s
+      interval: 5s
+      retries: 10
+
+  request-db:
+    image: postgres:16.1
+    ports:
+      - "5436:5432"
+    environment:
+      - POSTGRES_DB=request
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -q -d request -U user" ]
+      timeout: 5s
+      interval: 5s
+      retries: 10
+
+  comment-db:
+    image: postgres:16.1
+    ports:
+      - "5437:5432"
+    environment:
+      - POSTGRES_DB=comment
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -q -d comment -U user" ]
+      timeout: 5s
+      interval: 5s
+      retries: 10
