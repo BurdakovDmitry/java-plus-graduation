@@ -2,10 +2,12 @@ package ru.practicum.event.service;
 
 import client.StatClient;
 import com.querydsl.core.BooleanBuilder;
+import com.querydsl.core.types.Predicate;
 import ewm.HitDto;
 import ewm.ParamDto;
 import ewm.StatsDto;
 import feign.FeignException;
+import org.springframework.beans.factory.annotation.Value;
 import ru.practicum.contract.request.ParticipationRequestClient;
 import ru.practicum.dto.event.EventPreviewDto;
 import ru.practicum.dto.user.UserShortDto;
@@ -18,7 +20,6 @@ import ru.practicum.event.dto.PublicEventParamDto;
 import ru.practicum.event.dto.UpdateEventAdminRequest;
 import ru.practicum.event.dto.UpdateEventUserRequest;
 import ru.practicum.event.mapper.EventMapper;
-import ru.practicum.event.model.Location;
 import ru.practicum.dto.request.ConfirmedRequestCount;
 import ru.practicum.event.model.Event;
 import ru.practicum.dto.event.EventState;
@@ -58,6 +59,9 @@ public class EventServiceImpl implements EventService {
     private final EventMapper eventMapper;
     private final CategoryClient categoryClient;
     private final StatClient statClient;
+
+    @Value("${spring.application.name}")
+    private String applicationName;
 
     /**
      * Приватное получение упрощенного списка событий по заданным фильтрам с поддержкой пагинации.
@@ -245,64 +249,22 @@ public class EventServiceImpl implements EventService {
 
         saveHit(request);
 
-        QEvent event = QEvent.event;
-        BooleanBuilder paramFilter = new BooleanBuilder();
-
-        if (eventParamDto.text() != null && !eventParamDto.text().isBlank()) {
-            paramFilter.and(event.annotation.containsIgnoreCase(eventParamDto.text())
-                    .or(event.description.containsIgnoreCase(eventParamDto.text())));
-        }
-
-        if (eventParamDto.category() != null && !eventParamDto.category().isEmpty()) {
-            paramFilter.and(event.categoryId.in(eventParamDto.category()));
-        }
-
-        if (eventParamDto.paid() != null) {
-            paramFilter.and(event.paid.eq(eventParamDto.paid()));
-        }
-
-        LocalDateTime start = eventParamDto.rangeStart() != null ? eventParamDto.rangeStart() : LocalDateTime.now();
-        paramFilter.and(event.eventDate.goe(start));
-
-        if (eventParamDto.rangeEnd() != null) {
-            paramFilter.and(event.eventDate.loe(eventParamDto.rangeEnd()));
-        }
-
-        paramFilter.and(event.state.eq(EventState.PUBLISHED));
-
         Sort sortEventDate = Sort.unsorted();
         if (eventParamDto.sort() != null && eventParamDto.sort().equalsIgnoreCase("EVENT_DATE")) {
             sortEventDate = Sort.by("eventDate").ascending();
         }
 
+        Predicate predicate = createPublicPredicate(eventParamDto);
         Pageable pageable = PageRequest.of(eventParamDto.from() / eventParamDto.size(),
                 eventParamDto.size(), sortEventDate);
 
-        List<Event> events = eventRepository.findAll(paramFilter, pageable).getContent();
+        List<Event> events = eventRepository.findAll(predicate, pageable).getContent();
 
         if (events.isEmpty()) {
             return List.of();
         }
 
-        List<Long> eventIds = events.stream().map(Event::getId).toList();
-
-        Map<Long, Long> requestsMap = confirmedRequestsMap(eventIds);
-        Map<Long, Long> viewsMap = getViewsMap(events, true);
-        Map<Long, UserShortDto> userDtoMap = usersMap(events);
-        Map<Long, CategoryDto> categoryDtoMap = categoriesMap(events);
-
-        List<EventShortDto> shortsDto = events.stream()
-                .map(ev -> {
-                    UserShortDto initiatorDto = userDtoMap.getOrDefault(ev.getInitiatorId(),
-                            new UserShortDto(ev.getInitiatorId(), "Unknown User"));
-                    CategoryDto categoryDto = categoryDtoMap.getOrDefault(ev.getCategoryId(),
-                            new CategoryDto(ev.getCategoryId(), "Unknown Category"));
-                    EventShortDto shortDto = eventMapper.toShortDto(ev, initiatorDto, categoryDto);
-                    shortDto.setConfirmedRequests(requestsMap.getOrDefault(shortDto.getId(), 0L));
-                    shortDto.setViews(viewsMap.getOrDefault(shortDto.getId(), 0L));
-                    return shortDto;
-                })
-                .collect(Collectors.toList());
+        List<EventShortDto> shortsDto = mapToShortDtoList(events);
 
         if (eventParamDto.onlyAvailable()) {
             shortsDto = shortsDto.stream()
@@ -382,30 +344,7 @@ public class EventServiceImpl implements EventService {
             throw new ValidationException("rangeEnd не может быть раньше rangeStart");
         }
 
-        QEvent event = QEvent.event;
-        BooleanBuilder predicate = new BooleanBuilder();
-
-        if (filter.users() != null && !filter.users().isEmpty()) {
-            predicate.and(event.initiatorId.in(filter.users()));
-        }
-
-        if (filter.states() != null && !filter.states().isEmpty()) {
-            predicate.and(event.state.in(filter.states()));
-        }
-
-        if (filter.categories() != null && !filter.categories().isEmpty()) {
-            predicate.and(event.categoryId.in(filter.categories()));
-        }
-
-        if (filter.rangeStart() != null) {
-            predicate.and(event.eventDate.goe(filter.rangeStart()));
-        }
-
-        if (filter.rangeEnd() != null) {
-            predicate.and(event.eventDate.loe(filter.rangeEnd()));
-        }
-
-
+        Predicate predicate = createAdminPredicate(filter);
         Pageable pageable = PageRequest.of(filter.from() / filter.size(), filter.size());
 
         List<Event> events = eventRepository.findAll(predicate, pageable).getContent();
@@ -414,25 +353,7 @@ public class EventServiceImpl implements EventService {
             return List.of();
         }
 
-        List<Long> eventIds = events.stream().map(Event::getId).toList();
-
-        Map<Long, Long> requestsMap = confirmedRequestsMap(eventIds);
-        Map<Long, Long> viewsMap = getViewsMap(events, false);
-        Map<Long, UserShortDto> userDtoMap = usersMap(events);
-        Map<Long, CategoryDto> categoryDtoMap = categoriesMap(events);
-
-        List<EventFullDto> eventsFullDto = events.stream()
-                .map(ev -> {
-                    UserShortDto initiatorDto = userDtoMap.getOrDefault(ev.getInitiatorId(),
-                            new UserShortDto(ev.getInitiatorId(), "Unknown User"));
-                    CategoryDto categoryDto = categoryDtoMap.getOrDefault(ev.getCategoryId(),
-                            new CategoryDto(ev.getCategoryId(), "Unknown Category"));
-                    EventFullDto fullDto = eventMapper.toFullDto(ev, initiatorDto, categoryDto);
-                    fullDto.setConfirmedRequests(requestsMap.getOrDefault(fullDto.getId(), 0L));
-                    fullDto.setViews(viewsMap.getOrDefault(fullDto.getId(), 0L));
-                    return fullDto;
-                })
-                .toList();
+        List<EventFullDto> eventsFullDto = mapToFullDtoList(events);
 
         log.info("Поиск администратором по фильтрам завершен. Найдено событий: {}", eventsFullDto.size());
         return eventsFullDto;
@@ -456,37 +377,7 @@ public class EventServiceImpl implements EventService {
             throw new ValidationException("Дата события должна быть не раньше, чем через час");
         }
 
-        if (dto.annotation() != null) {
-            event.setAnnotation(dto.annotation());
-        }
-
-        if (dto.description() != null) {
-            event.setDescription(dto.description());
-        }
-
-        if (dto.eventDate() != null) {
-            event.setEventDate(dto.eventDate());
-        }
-
-        if (dto.paid() != null) {
-            event.setPaid(dto.paid());
-        }
-
-        if (dto.participantLimit() != null) {
-            event.setParticipantLimit(dto.participantLimit());
-        }
-
-        if (dto.requestModeration() != null) {
-            event.setRequestModeration(dto.requestModeration());
-        }
-
-        if (dto.title() != null) {
-            event.setTitle(dto.title());
-        }
-
-        if (dto.location() != null) {
-            event.setLocation(new Location(dto.location().getLat(), dto.location().getLon()));
-        }
+        eventMapper.updateEventFromAdminRequest(dto, event);
 
         if (dto.category() != null) {
             CategoryDto categoryDto = categoryClient.getCategoryById(dto.category());
@@ -549,7 +440,7 @@ public class EventServiceImpl implements EventService {
         log.info("Сохранение в сервис статистики запроса: {}", request);
 
         HitDto hitDto = new HitDto(
-                "event-service",
+                applicationName,
                 request.getRequestURI(),
                 request.getRemoteAddr(),
                 LocalDateTime.now());
@@ -814,5 +705,145 @@ public class EventServiceImpl implements EventService {
             log.warn("request-service недоступен для получения количества подтвержденных заявок. Возвращаем 0L.");
             return 0L;
         }
+    }
+
+    /**
+     * Создает динамический запрос QueryDSL для публичного поиска опубликованных событий (для метода getEventsPublic).
+     *
+     * @param eventParamDto с данными для фильтрации запроса
+     * @return Predicate готового динамического запроса
+     */
+    private Predicate createPublicPredicate(PublicEventParamDto eventParamDto) {
+        log.info("Создаем динамический запрос для публичного поиска опубликованных событий по фильтрам: {}", eventParamDto);
+
+        QEvent event = QEvent.event;
+        BooleanBuilder paramFilter = new BooleanBuilder();
+
+        if (eventParamDto.text() != null && !eventParamDto.text().isBlank()) {
+            paramFilter.and(event.annotation.containsIgnoreCase(eventParamDto.text())
+                    .or(event.description.containsIgnoreCase(eventParamDto.text())));
+        }
+
+        if (eventParamDto.category() != null && !eventParamDto.category().isEmpty()) {
+            paramFilter.and(event.categoryId.in(eventParamDto.category()));
+        }
+
+        if (eventParamDto.paid() != null) {
+            paramFilter.and(event.paid.eq(eventParamDto.paid()));
+        }
+
+        LocalDateTime start = eventParamDto.rangeStart() != null ? eventParamDto.rangeStart() : LocalDateTime.now();
+        paramFilter.and(event.eventDate.goe(start));
+
+        if (eventParamDto.rangeEnd() != null) {
+            paramFilter.and(event.eventDate.loe(eventParamDto.rangeEnd()));
+        }
+
+        paramFilter.and(event.state.eq(EventState.PUBLISHED));
+
+        log.info("Динамический запрос успешно создан");
+        return paramFilter;
+    }
+
+    /**
+     * Создает динамический запрос QueryDSL для поиска событий администратором (для метода searchEventsAdmin).
+     *
+     * @param filter с данными для фильтрации запроса
+     * @return Predicate готового динамического запроса
+     */
+    private Predicate createAdminPredicate(AdminEventSearchFilter filter) {
+        log.info("Создаем динамический запрос для поиска событий администратором по фильтрам: {}", filter);
+
+        QEvent event = QEvent.event;
+        BooleanBuilder predicate = new BooleanBuilder();
+
+        if (filter.users() != null && !filter.users().isEmpty()) {
+            predicate.and(event.initiatorId.in(filter.users()));
+        }
+
+        if (filter.states() != null && !filter.states().isEmpty()) {
+            predicate.and(event.state.in(filter.states()));
+        }
+
+        if (filter.categories() != null && !filter.categories().isEmpty()) {
+            predicate.and(event.categoryId.in(filter.categories()));
+        }
+
+        if (filter.rangeStart() != null) {
+            predicate.and(event.eventDate.goe(filter.rangeStart()));
+        }
+
+        if (filter.rangeEnd() != null) {
+            predicate.and(event.eventDate.loe(filter.rangeEnd()));
+        }
+
+        log.info("Динамический запрос для администратора успешно создан");
+        return predicate;
+    }
+
+    /**
+     * Преобразует список сущностей событий в список упрощённых DTO
+     *
+     * @param events список сущностей событий
+     * @return список EventShortDto упрощенных событий
+     */
+    private List<EventShortDto> mapToShortDtoList(List<Event> events) {
+        log.info("Получение списка EventShortDto из {} событий", events.size());
+
+        List<Long> eventIds = events.stream().map(Event::getId).toList();
+
+        Map<Long, Long> requestsMap = confirmedRequestsMap(eventIds);
+        Map<Long, Long> viewsMap = getViewsMap(events, true);
+        Map<Long, UserShortDto> userDtoMap = usersMap(events);
+        Map<Long, CategoryDto> categoryDtoMap = categoriesMap(events);
+
+        List<EventShortDto> shortsDto = events.stream()
+                .map(ev -> {
+                    UserShortDto initiatorDto = userDtoMap.getOrDefault(ev.getInitiatorId(),
+                            new UserShortDto(ev.getInitiatorId(), "Unknown User"));
+                    CategoryDto categoryDto = categoryDtoMap.getOrDefault(ev.getCategoryId(),
+                            new CategoryDto(ev.getCategoryId(), "Unknown Category"));
+                    EventShortDto shortDto = eventMapper.toShortDto(ev, initiatorDto, categoryDto);
+                    shortDto.setConfirmedRequests(requestsMap.getOrDefault(shortDto.getId(), 0L));
+                    shortDto.setViews(viewsMap.getOrDefault(shortDto.getId(), 0L));
+                    return shortDto;
+                })
+                .collect(Collectors.toList());
+
+        log.info("Получен список упрощенный событий в количестве: {}", shortsDto.size());
+        return shortsDto;
+    }
+
+    /**
+     * Преобразует список сущностей событий в список подробных DTO
+     *
+     * @param events список сущностей событий
+     * @return список EventFullDto подробных событий
+     */
+    private List<EventFullDto> mapToFullDtoList(List<Event> events) {
+        log.info("Получение списка EventFullDto из {} событий", events.size());
+
+        List<Long> eventIds = events.stream().map(Event::getId).toList();
+
+        Map<Long, Long> requestsMap = confirmedRequestsMap(eventIds);
+        Map<Long, Long> viewsMap = getViewsMap(events, false);
+        Map<Long, UserShortDto> userDtoMap = usersMap(events);
+        Map<Long, CategoryDto> categoryDtoMap = categoriesMap(events);
+
+        List<EventFullDto> eventsFullDto = events.stream()
+                .map(ev -> {
+                    UserShortDto initiatorDto = userDtoMap.getOrDefault(ev.getInitiatorId(),
+                            new UserShortDto(ev.getInitiatorId(), "Unknown User"));
+                    CategoryDto categoryDto = categoryDtoMap.getOrDefault(ev.getCategoryId(),
+                            new CategoryDto(ev.getCategoryId(), "Unknown Category"));
+                    EventFullDto fullDto = eventMapper.toFullDto(ev, initiatorDto, categoryDto);
+                    fullDto.setConfirmedRequests(requestsMap.getOrDefault(fullDto.getId(), 0L));
+                    fullDto.setViews(viewsMap.getOrDefault(fullDto.getId(), 0L));
+                    return fullDto;
+                })
+                .toList();
+
+        log.info("Получен список подробных событий в количестве: {}", eventsFullDto.size());
+        return eventsFullDto;
     }
 }

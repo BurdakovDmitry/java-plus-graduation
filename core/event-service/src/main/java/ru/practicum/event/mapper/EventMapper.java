@@ -6,6 +6,7 @@ import ru.practicum.dto.user.UserShortDto;
 import ru.practicum.event.dto.EventFullDto;
 import ru.practicum.event.dto.EventShortDto;
 import ru.practicum.event.dto.NewEventDto;
+import ru.practicum.event.dto.UpdateEventAdminRequest;
 import ru.practicum.event.dto.UpdateEventUserRequest;
 import ru.practicum.event.model.Event;
 import ru.practicum.dto.category.CategoryDto;
@@ -48,6 +49,11 @@ public interface EventMapper {
     @Mapping(target = "categoryId", ignore = true)
     @Mapping(target = "compilations", ignore = true)
     void updateEventMap(UpdateEventUserRequest request, @MappingTarget Event event);
+
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "categoryId", ignore = true)
+    @Mapping(target = "state", ignore = true)
+    void updateEventFromAdminRequest(UpdateEventAdminRequest dto, @MappingTarget Event event);
 
     EventContractDto mapToContractDto(Event event);
 
