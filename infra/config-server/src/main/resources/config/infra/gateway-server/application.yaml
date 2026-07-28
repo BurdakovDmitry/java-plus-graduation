@@ -31,19 +31,91 @@ spring:
           filters:
             - PreserveHostHeader
 
-        # 3. Маршрут для основного сервиса с доступностью - public
-        - id: core-public-service_route
-          uri: lb://main-service
+        # 3. Маршрут для user-service
+        - id: user-service_route
+          uri: lb://user-service
           predicates:
-            - Path=/events/**,/users/**,/categories/**,/compilations/**,/comments/**
+            - Path=/admin/users/**
           filters:
             - PreserveHostHeader
 
-        # 4. Маршрут для основного сервиса с доступностью - admin
-        - id: core-admin-service_route
-          uri: lb://main-service
+        # 4. Маршрут для category-service с доступностью - public
+        - id: category-public-service_route
+          uri: lb://category-service
           predicates:
-            - Path=/admin/**
+            - Path=/categories/**
+          filters:
+            - PreserveHostHeader
+
+        # 5. Маршрут для category-service с доступностью - admin
+        - id: category-admin-service_route
+          uri: lb://category-service
+          predicates:
+            - Path=/admin/categories/**
+          filters:
+            - PreserveHostHeader
+
+        # 6. Маршрут для request-service с доступностью - public
+        - id: request-public-service_route
+          uri: lb://request-service
+          predicates:
+            - Path=/users/*/requests/**
+          filters:
+            - PreserveHostHeader
+
+        # 7. Маршрут для request-service с доступностью - private
+        - id: request-private-service_route
+          uri: lb://request-service
+          predicates:
+            - Path=/users/*/events/*/requests/**
+          filters:
+            - PreserveHostHeader
+
+        # 8. Маршрут для comment-service с доступностью - public
+        - id: comment-public-service_route
+          uri: lb://comment-service
+          predicates:
+            - Path=/comments/**
+          filters:
+            - PreserveHostHeader
+
+        # 9. Маршрут для comment-service с доступностью - private
+        - id: comment-private-service_route
+          uri: lb://comment-service
+          predicates:
+            - Path=/users/*/comments/**, /users/*/events/*/comments/**
+          filters:
+            - PreserveHostHeader
+
+        # 10. Маршрут для comment-service с доступностью - admin
+        - id: comment-admin-service_route
+          uri: lb://comment-service
+          predicates:
+            - Path=/admin/comments/**
+          filters:
+            - PreserveHostHeader
+
+        # 11. Маршрут для event-service с доступностью - public
+        - id: event-public-service_route
+          uri: lb://event-service
+          predicates:
+            - Path=/events/**, /compilations/**
+          filters:
+            - PreserveHostHeader
+
+        # 12. Маршрут для event-service с доступностью - private
+        - id: event-private-service_route
+          uri: lb://event-service
+          predicates:
+            - Path=/users/*/events/**
+          filters:
+            - PreserveHostHeader
+
+        # 13. Маршрут для event-service с доступностью - admin
+        - id: event-admin-service_route
+          uri: lb://event-service
+          predicates:
+            - Path=/admin/events/**, /admin/compilations/**
           filters:
             - PreserveHostHeader
 
