@@ -27,6 +27,12 @@ public class ParticipationRequestClientFallbackFactory implements FallbackFactor
                 log.error("Fallback для getRequestCount: сервис временно недоступен");
                 return 0L;
             }
+
+            @Override
+            public boolean checkUserAttendance(Long userId, Long eventId) {
+                log.error("Fallback для checkUserAttendance: сервис временно недоступен");
+                return false;
+            }
         };
     }
 }

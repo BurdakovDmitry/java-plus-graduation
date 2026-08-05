@@ -1,0 +1,13 @@
+spring:
+  application:
+    name: "collector"
+
+  main:
+    web-application-type: none
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+
+grpc:
+  server:
+    port: 0

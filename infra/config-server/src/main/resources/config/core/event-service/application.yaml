@@ -1,6 +1,19 @@
 server:
   port: 0
 
+grpc:
+  client:
+    collector:
+      address: "discovery:///collector"
+      enable-keep-alive: true
+      keep-alive-without-calls: true
+      negotiation-type: "plaintext"
+    analyzer:
+      address: "discovery:///analyzer"
+      enable-keep-alive: true
+      keep-alive-without-calls: true
+      negotiation-type: "plaintext"
+
 spring:
   application:
     name: "event-service"

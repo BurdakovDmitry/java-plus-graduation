@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package ru.practicum.message.analyzer.event;
+
+option java_multiple_files = true;
+option java_package = "ru.practicum.grpc.message.analyzer.event";
+
+message UserPredictionsRequestProto {
+    int32 user_id = 1; // Идентификатор пользователя, для которого вычисляются рекомендации
+    int32 max_results = 2; // Ограничение количества мероприятий в результате выполнения запроса
+}
+
+message SimilarEventsRequestProto {
+    int32 event_id = 1; // Идентификатор мероприятия, для которого нужно найти похожие мероприятия
+    int32 user_id = 2; // Идентификатор пользователя, для которого из выдачи нужно исключить мероприятия, с которыми он уже взаимодействовал
+    int32 max_results = 3; // Ограничение количества мероприятий в результате выполнения запроса
+}
+
+message InteractionsCountRequestProto {
+    repeated int32 event_id = 1; // Идентификаторы мероприятий, для которых нужно вернуть сумму всех взаимодействий
+}
+
+message RecommendedEventProto {
+    int32 event_id = 1; // Идентификатор рекомендуемого мероприятия
+    double score = 2; // Либо предсказанная оценка, либо коэффициент сходства, либо сумма весов действий с указанным мероприятием (в зависимости от метода, который вызывался в gRPC-сервисе).
+}

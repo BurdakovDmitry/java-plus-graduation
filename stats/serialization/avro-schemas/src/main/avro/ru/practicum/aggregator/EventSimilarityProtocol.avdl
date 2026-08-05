@@ -1,0 +1,10 @@
+@namespace("ru.practicum.ewm.stats.avro")
+
+protocol EventSimilarityProtocol {
+		record EventSimilarityAvro {
+			int eventA; // Идентификатор пользователя, совершившего действие
+			int eventB; // Идентификатор мероприятия, с которым связано действие
+			double score; // Значение рассчитанного сходства мероприятий;
+			timestamp_ms timestamp; // Временна́я метка, указывающая время действия
+		}
+}

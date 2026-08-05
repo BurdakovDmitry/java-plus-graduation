@@ -59,7 +59,7 @@ public class CompilationServiceImpl implements CompilationService {
         Compilation savedCompilation = compilationRepository.save(compilation);
 
         CompilationDto dto = compilationMapper.compilationToDto(savedCompilation);
-        saveViewsAndConfirmedRequests(List.of(dto), savedCompilation.getEvents());
+        saveRatingAndConfirmedRequests(List.of(dto), savedCompilation.getEvents());
 
         log.info("Добавлена новая подборка: {}", newCompilationDto.title());
         return dto;
@@ -105,7 +105,7 @@ public class CompilationServiceImpl implements CompilationService {
         Compilation savedCompilation = compilationRepository.save(compilation);
 
         CompilationDto dto = compilationMapper.compilationToDto(savedCompilation);
-        saveViewsAndConfirmedRequests(List.of(dto), savedCompilation.getEvents());
+        saveRatingAndConfirmedRequests(List.of(dto), savedCompilation.getEvents());
 
         log.info("Подборка с ID={} успешна обновлена", compilationId);
         return dto;
@@ -139,7 +139,7 @@ public class CompilationServiceImpl implements CompilationService {
                 .map(compilationMapper::compilationToDto)
                 .collect(Collectors.toList());
 
-        saveViewsAndConfirmedRequests(dto, events);
+        saveRatingAndConfirmedRequests(dto, events);
 
         log.info("Поиск завершен. Найдено подборок: {}", dto.size());
         return dto;
@@ -158,7 +158,7 @@ public class CompilationServiceImpl implements CompilationService {
         Compilation compilation = findCompilationById(compId);
         CompilationDto dto = compilationMapper.compilationToDto(compilation);
 
-        saveViewsAndConfirmedRequests(List.of(dto), compilation.getEvents());
+        saveRatingAndConfirmedRequests(List.of(dto), compilation.getEvents());
 
         log.info("Подборка событий с ID={} успешно получена", compId);
         return dto;
@@ -177,12 +177,12 @@ public class CompilationServiceImpl implements CompilationService {
     }
 
     /**
-     * Пакетно заполняет DTO подборок информацией о просмотрах и подтверждённых запросах для EventShortDto.
+     * Пакетно заполняет DTO подборок информацией о рейтинге и подтверждённых запросах для EventShortDto.
      *
      * @param dto список CompilationDto подборок событий
      * @param events список сущностей Event, содержащихся в подборках
      */
-    private void saveViewsAndConfirmedRequests(List<CompilationDto> dto, List<Event> events) {
+    private void saveRatingAndConfirmedRequests(List<CompilationDto> dto, List<Event> events) {
         if (dto.isEmpty() || events.isEmpty()) {
             return;
         }
@@ -192,16 +192,14 @@ public class CompilationServiceImpl implements CompilationService {
         // Пакетный запрос в request-service для получения подтверждённых заявок по всем событиям
         Map<Long, Long> confirmedRequestsMap = requestClient.getConfirmedRequestCount(eventIds).stream()
                 .collect(Collectors.toMap(ConfirmedRequestCount::eventId, ConfirmedRequestCount::count));
-
-        // Получение статистики просмотров для всей пачки событий из микросервиса статистики
-        Map<Long, Long> viewsMap = eventService.getViewsMap(events, false);
+        Map<Long, Double> ratingMap = eventService.ratingsMap(eventIds);
 
         // Распределение собранных данных в список EventShortDto
         dto.forEach(comDto -> {
             if (comDto.events() != null) {
                 comDto.events().forEach(shortDto -> {
                     shortDto.setConfirmedRequests(confirmedRequestsMap.getOrDefault(shortDto.getId(), 0L));
-                    shortDto.setViews(viewsMap.getOrDefault(shortDto.getId(), 0L));
+                    shortDto.setRating(ratingMap.getOrDefault(shortDto.getId(), 0.0));
                 });
             }
         });

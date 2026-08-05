@@ -22,4 +22,6 @@ public interface ParticipationRequestService {
     List<ConfirmedRequestCount> getConfirmedRequestCount(List<Long> eventIds);
 
     Long getRequestCount(Long eventId, ParticipationStatus status);
+
+    boolean checkUserAttendedEvent(Long userId, Long eventId);
 }
