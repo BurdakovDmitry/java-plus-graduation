@@ -1,7 +1,9 @@
 package ru.practicum.service;
 
+import client.StatClient;
 import ru.practicum.contract.event.EventClient;
 import ru.practicum.dto.EventRequestStatusUpdateRequest;
+import ru.practicum.dto.collector.ActionType;
 import ru.practicum.dto.event.EventContractDto;
 import ru.practicum.dto.event.EventState;
 import feign.FeignException;
@@ -33,6 +35,7 @@ public class ParticipationRequestServiceImpl implements ParticipationRequestServ
     private final EventClient eventClient;
     private final ParticipationRequestRepository requestRepository;
     private final ParticipationRequestMapper requestMapper;
+    private final StatClient statClient;
 
     /**
      * Возвращает список заявок текущего пользователя на участие в чужих событиях.
@@ -56,6 +59,7 @@ public class ParticipationRequestServiceImpl implements ParticipationRequestServ
 
     /**
      * Добавляет заявку текущего пользователя на участие в событии.
+     * Отправляем информацию о регистрации 'REGISTER' по gRPC в Collector
      *
      * @param userId идентификатор пользователя
      * @param eventId идентификатор события
@@ -99,6 +103,8 @@ public class ParticipationRequestServiceImpl implements ParticipationRequestServ
         request.setEventId(eventId);
 
         ParticipationRequest saveRequest = requestRepository.save(request);
+
+        statClient.sendUserActionToCollector(request.getRequesterId(), request.getEventId(), ActionType.REGISTER);
 
         log.info("Заявка добавлена от пользователя с ID={} на событие с ID={}", userId, eventId);
         return requestMapper.mapToRequestDto(saveRequest);
@@ -255,6 +261,18 @@ public class ParticipationRequestServiceImpl implements ParticipationRequestServ
     public Long getRequestCount(Long eventId, ParticipationStatus status) {
         log.info("Получение количества заявок для события с ID={} и статусом заявки={}", eventId, status);
         return requestRepository.countByEventIdAndStatus(eventId, status);
+    }
+
+    /**
+     * Проверяет посещение события (статус 'CONFIRMED') пользователем.
+     *
+     * @param userId идентификатор пользователя
+     * @param eventId идентификатор события
+     */
+    @Override
+    public boolean checkUserAttendedEvent(Long userId, Long eventId) {
+        return requestRepository.existsByRequesterIdAndEventIdAndStatus(
+                userId, eventId, ParticipationStatus.CONFIRMED);
     }
 
     /**

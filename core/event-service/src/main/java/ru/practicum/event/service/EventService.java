@@ -9,7 +9,6 @@ import ru.practicum.event.dto.NewEventDto;
 import ru.practicum.event.dto.PublicEventParamDto;
 import ru.practicum.event.dto.UpdateEventAdminRequest;
 import ru.practicum.event.dto.UpdateEventUserRequest;
-import ru.practicum.event.model.Event;
 import jakarta.servlet.http.HttpServletRequest;
 
 import java.util.List;
@@ -27,13 +26,11 @@ public interface EventService {
 
     List<EventShortDto> getEventsPublic(PublicEventParamDto paramDto, HttpServletRequest request);
 
-    EventFullDto getEventByIdPublic(Long id, HttpServletRequest request);
+    EventFullDto getEventByIdPublic(Long eventId, Long userId, HttpServletRequest request);
 
     List<EventFullDto> searchEventsAdmin(AdminEventSearchFilter filter);
 
     EventFullDto updateEventAdmin(Long eventId, UpdateEventAdminRequest dto);
-
-    Map<Long, Long> getViewsMap(List<Event> events, boolean unique);
 
     boolean existsByCategoryId(Long categoryId);
 
@@ -42,4 +39,10 @@ public interface EventService {
     EventPreviewDto findByIdPreview(Long eventId);
 
     List<EventPreviewDto> getEventPreviewByIds(List<Long> ids);
+
+    List<EventFullDto> getRecommendations(Long userId, int maxResults);
+
+    Map<Long, Double> ratingsMap(List<Long> eventIds);
+
+    void likeEvent(Long eventId, Long userId);
 }

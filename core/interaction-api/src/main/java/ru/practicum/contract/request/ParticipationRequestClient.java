@@ -17,4 +17,8 @@ public interface ParticipationRequestClient {
     @GetMapping("/contract/request/count")
     Long getRequestCount(@RequestParam("eventId") Long eventId,
                          @RequestParam("status") ParticipationStatus status);
+
+    @GetMapping("/contract/request/attendance")
+    boolean checkUserAttendance(@RequestParam("userId") Long userId,
+                                @RequestParam("eventId") Long eventId);
 }

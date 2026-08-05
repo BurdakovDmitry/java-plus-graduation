@@ -33,4 +33,11 @@ public class ContractParticipationRequestController {
         log.info("Внутренний запрос: получение количества заявок на событие по ID: {} и статусу: {}", eventId, status);
         return requestService.getRequestCount(eventId, status);
     }
+
+    @GetMapping("/attendance")
+    public boolean checkUserAttendance(@RequestParam Long userId,
+                                       @RequestParam Long eventId) {
+        log.info("Внутренний запрос проверки посещения события: userId={}, eventId={}", userId, eventId);
+        return requestService.checkUserAttendedEvent(userId, eventId);
+    }
 }
